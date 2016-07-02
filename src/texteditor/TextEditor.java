@@ -23,6 +23,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.ToolBar;
+import javafx.scene.control.Tooltip;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.MouseButton;
@@ -61,9 +62,11 @@ public class TextEditor extends Application {
 
         Scene scene = new Scene(borderPane, 500, 500);
 
-        primaryStage.setTitle("Hello World!");
+        primaryStage.setTitle("Text Editor");
         primaryStage.setScene(scene);
         primaryStage.show();
+        
+        ta.requestFocus();
     }
 
 
@@ -95,8 +98,10 @@ public class TextEditor extends Application {
                 currentFile = null;
 
                 primaryStage.setTitle("New File!");
+                editingArea.requestFocus();
             }
         });
+        newFile.setTooltip(new Tooltip("Create New File"));
 
         Button openFile = new Button();
         openFile.setGraphic(new ImageView(new Image(getClass().getResourceAsStream("/images/open.png"))));
@@ -125,6 +130,7 @@ public class TextEditor extends Application {
                         primaryStage.setTitle(currentFile.getName());
 
                         br.close();
+                        editingArea.requestFocus();
                     } catch (IOException err) {
                         Alert alert = new Alert(AlertType.ERROR);
                         alert.setTitle("Error opening file!");
@@ -137,10 +143,12 @@ public class TextEditor extends Application {
                         alert.setContentText(sw.toString());
 
                         alert.showAndWait();
+                        editingArea.requestFocus();
                     }
                 }
             }
         });
+        openFile.setTooltip(new Tooltip("Open File"));
 
         Button saveFile = new Button();
         saveFile.setGraphic(new ImageView(new Image(getClass().getResourceAsStream("/images/save.png"))));
@@ -168,9 +176,10 @@ public class TextEditor extends Application {
                     Alert alert = new Alert(AlertType.INFORMATION);
                     alert.setTitle("File Saved");
                     alert.setContentText("File was saved!");
+                    alert.showAndWait();
 
                     primaryStage.setTitle(currentFile.getName());
-
+                    editingArea.requestFocus();
                 } catch (IOException err) {
                     Alert alert = new Alert(AlertType.INFORMATION);
                     alert.setTitle("Could not save file!");
@@ -181,9 +190,12 @@ public class TextEditor extends Application {
                     err.printStackTrace(pw);
 
                     alert.setContentText(sw.toString());
+                    alert.showAndWait();
+                    editingArea.requestFocus();
                 }
             }
         });
+        saveFile.setTooltip(new Tooltip("Save File"));
 
         Button saveAs = new Button();
         saveAs.setGraphic(new ImageView(new Image(getClass().getResourceAsStream("/images/save_as.png"))));
@@ -210,9 +222,10 @@ public class TextEditor extends Application {
                     Alert alert = new Alert(AlertType.INFORMATION);
                     alert.setTitle("File Saved");
                     alert.setContentText("File was saved!");
+                    alert.showAndWait();
 
                     primaryStage.setTitle(currentFile.getName());
-
+                    editingArea.requestFocus();
                 } catch (IOException err) {
                     Alert alert = new Alert(AlertType.INFORMATION);
                     alert.setTitle("Could not save file!");
@@ -223,10 +236,12 @@ public class TextEditor extends Application {
                     err.printStackTrace(pw);
 
                     alert.setContentText(sw.toString());
+                    editingArea.requestFocus();
+                    editingArea.requestFocus();
                 }
             }
-        }
-        );
+        });
+        saveAs.setTooltip(new Tooltip("Save As..."));
 
         return toolBar;
     }
