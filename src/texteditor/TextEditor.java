@@ -21,6 +21,7 @@ import javafx.scene.control.Alert;
 import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.Button;
 import javafx.scene.control.ContextMenu;
+import javafx.scene.control.Label;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.ToolBar;
 import javafx.scene.control.Tooltip;
@@ -29,6 +30,8 @@ import javafx.scene.image.ImageView;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.GridPane;
+import javafx.scene.layout.Priority;
 import javafx.scene.text.Font;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
@@ -46,7 +49,7 @@ public class TextEditor extends Application {
     /**
      * The file that is currently being edited.
      */
-    public File currentFile = null;
+    private File currentFile = null;
 
 
     @Override
@@ -65,7 +68,7 @@ public class TextEditor extends Application {
         primaryStage.setTitle("Text Editor");
         primaryStage.setScene(scene);
         primaryStage.show();
-        
+
         ta.requestFocus();
     }
 
@@ -97,7 +100,7 @@ public class TextEditor extends Application {
                 editingArea.clear();
                 currentFile = null;
 
-                primaryStage.setTitle("New File!");
+                primaryStage.setTitle("Text Editor - New File");
                 editingArea.requestFocus();
             }
         });
@@ -127,22 +130,12 @@ public class TextEditor extends Application {
                             editingArea.appendText(line + "\n");
                         }
 
-                        primaryStage.setTitle(currentFile.getName());
+                        primaryStage.setTitle("Text Editor - " + currentFile.getName());
 
                         br.close();
                         editingArea.requestFocus();
                     } catch (IOException err) {
-                        Alert alert = new Alert(AlertType.ERROR);
-                        alert.setTitle("Error opening file!");
-                        alert.setHeaderText("Error Opening File!");
-
-                        StringWriter sw = new StringWriter();
-                        PrintWriter pw = new PrintWriter(sw);
-                        err.printStackTrace(pw);
-
-                        alert.setContentText(sw.toString());
-
-                        alert.showAndWait();
+                        showExceptionDialog(err);
                         editingArea.requestFocus();
                     }
                 }
@@ -158,41 +151,20 @@ public class TextEditor extends Application {
             @Override
             public void handle(ActionEvent e) {
 
-                try {
-
-                    if(currentFile == null) {
-                        File temp = fileChooser.showSaveDialog(primaryStage);
-                        if(temp == null) {
-                            return;
-                        }
-
-                        currentFile = temp;
+                if (currentFile == null) {
+                    File temp = fileChooser.showSaveDialog(primaryStage);
+                    if (temp == null) {
+                        return;
                     }
 
-                    PrintWriter pw = new PrintWriter(new BufferedWriter(new FileWriter(currentFile)));
-                    pw.println(editingArea.getText());
-                    pw.close();
-
-                    Alert alert = new Alert(AlertType.INFORMATION);
-                    alert.setTitle("File Saved");
-                    alert.setContentText("File was saved!");
-                    alert.showAndWait();
-
-                    primaryStage.setTitle(currentFile.getName());
-                    editingArea.requestFocus();
-                } catch (IOException err) {
-                    Alert alert = new Alert(AlertType.INFORMATION);
-                    alert.setTitle("Could not save file!");
-                    alert.setHeaderText("Error saving file!");
-
-                    StringWriter sw = new StringWriter();
-                    PrintWriter pw = new PrintWriter(sw);
-                    err.printStackTrace(pw);
-
-                    alert.setContentText(sw.toString());
-                    alert.showAndWait();
-                    editingArea.requestFocus();
+                    currentFile = temp;
                 }
+
+                saveFile(editingArea.getText());
+
+                primaryStage.setTitle("Text Editor - " + currentFile.getName());
+                editingArea.requestFocus();
+
             }
         });
         saveFile.setTooltip(new Tooltip("Save File"));
@@ -205,40 +177,18 @@ public class TextEditor extends Application {
             @Override
             public void handle(ActionEvent e) {
 
-                try {
+                File temp = fileChooser.showSaveDialog(primaryStage);
 
-                    File temp = fileChooser.showSaveDialog(primaryStage);
-
-                    if(temp == null) {
-                        return;
-                    }
-
-                    currentFile = temp;
-
-                    PrintWriter pw = new PrintWriter(new BufferedWriter(new FileWriter(currentFile)));
-                    pw.println(editingArea.getText());
-                    pw.close();
-
-                    Alert alert = new Alert(AlertType.INFORMATION);
-                    alert.setTitle("File Saved");
-                    alert.setContentText("File was saved!");
-                    alert.showAndWait();
-
-                    primaryStage.setTitle(currentFile.getName());
-                    editingArea.requestFocus();
-                } catch (IOException err) {
-                    Alert alert = new Alert(AlertType.INFORMATION);
-                    alert.setTitle("Could not save file!");
-                    alert.setHeaderText("Error saving file!");
-
-                    StringWriter sw = new StringWriter();
-                    PrintWriter pw = new PrintWriter(sw);
-                    err.printStackTrace(pw);
-
-                    alert.setContentText(sw.toString());
-                    editingArea.requestFocus();
-                    editingArea.requestFocus();
+                if(temp == null) {
+                    return;
                 }
+
+                currentFile = temp;
+
+                saveFile(editingArea.getText());
+
+                primaryStage.setTitle("Text Editor - " + currentFile.getName());
+                editingArea.requestFocus();
             }
         });
         saveAs.setTooltip(new Tooltip("Save As..."));
@@ -274,5 +224,52 @@ public class TextEditor extends Application {
                 }
             }
         });
+    }
+
+
+    private void saveFile(String content) {
+        try(PrintWriter pw = new PrintWriter(new BufferedWriter(new FileWriter(currentFile)));) {
+            pw.println(content);
+            Alert alert = new Alert(AlertType.INFORMATION);
+            alert.setTitle("File Saved");
+            alert.setHeaderText(null);
+            alert.setContentText("File Saved!");
+            alert.showAndWait();
+        } catch (IOException err) {
+            showExceptionDialog(err);
+        }
+    }
+
+
+    private void showExceptionDialog(Throwable e) {
+        StringWriter sw = new StringWriter();
+        PrintWriter pw = new PrintWriter(sw);
+        e.printStackTrace(pw);
+        String text = sw.toString();
+
+        Alert alert = new Alert(AlertType.ERROR);
+        alert.setTitle("An Error Occurred");
+        alert.setHeaderText(e.getMessage());
+
+        Label label = new Label("The Exception Was:");
+
+        TextArea ta = new TextArea(text);
+        ta.setEditable(false);
+        ta.setWrapText(true);
+
+        ta.setMaxWidth(Double.MAX_VALUE);
+        ta.setMaxHeight(Double.MAX_VALUE);
+        GridPane.setVgrow(ta, Priority.ALWAYS);
+        GridPane.setHgrow(ta, Priority.ALWAYS);
+
+        GridPane gp = new GridPane();
+        gp.setMaxWidth(Double.MAX_VALUE);
+        gp.add(label, 0, 0);
+        gp.add(ta, 0, 1);
+
+        alert.getDialogPane().setExpandableContent(ta);
+
+        alert.showAndWait();
+
     }
 }
