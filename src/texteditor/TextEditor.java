@@ -10,27 +10,27 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.Optional;
 import javafx.application.Application;
+import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
+import javafx.event.Event;
+import javafx.event.EventHandler;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar.ButtonData;
 import javafx.scene.control.ButtonType;
-import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
+import javafx.scene.control.Tab;
+import javafx.scene.control.TabPane;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.ToolBar;
 import javafx.scene.control.Tooltip;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
-import javafx.scene.input.KeyEvent;
-import javafx.scene.input.MouseButton;
-import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Priority;
-import javafx.scene.text.Font;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 
@@ -45,15 +45,21 @@ public class TextEditor extends Application {
 
 
     /**
-     * The file that is currently being edited.
+     * The TabPane that will hold tabs.
      */
-    private File currentFile = null;
+    private TabPane tabPane;
 
 
     /**
-     * Keeps track for if the file has been edited.
+     * The File chooser used when saving, opening, and closing files.
      */
-    private boolean hasBeenEdited = false;
+    private FileChooser fileChooser;
+
+
+    /**
+     * The stage of the application.
+     */
+    private Stage primaryStage;
 
 
     /*
@@ -62,21 +68,30 @@ public class TextEditor extends Application {
     @Override
     public void start(Stage primaryStage) {
 
+        this.primaryStage = primaryStage;
+
         BorderPane borderPane = new BorderPane();
 
-        TextArea ta = getTextEditorArea();
-        ToolBar tb = getToolBar(primaryStage, ta);
+        tabPane = new TabPane();
+
+        ToolBar tb = getToolBar();
 
         borderPane.setTop(tb);
-        borderPane.setCenter(ta);
+        borderPane.setCenter(tabPane);
+        
+        addNewTab();
+
+        fileChooser = new FileChooser();
+        fileChooser.getExtensionFilters().addAll(
+                new FileChooser.ExtensionFilter("Text", "*.txt"),
+                new FileChooser.ExtensionFilter("All Files", "*")
+        );
 
         Scene scene = new Scene(borderPane, 500, 500);
 
         primaryStage.setTitle("Text Editor");
         primaryStage.setScene(scene);
         primaryStage.show();
-
-        ta.requestFocus();
     }
 
 
@@ -91,20 +106,11 @@ public class TextEditor extends Application {
     /**
      * Creates and returns the tool bar that appears at the top of the window.
      *
-     * @param primaryStage  The stage that is the parent for the alert dialogs.
-     * @param editingArea   The text area that the user types in.
      * @return  The tool bar that contains the new, open, save,save as, and exit
      *          buttons.
      */
-    private ToolBar getToolBar(final Stage primaryStage, final TextArea editingArea) {
+    private ToolBar getToolBar() {
         ToolBar toolBar = new ToolBar();
-
-        // Create the file chooser and add extension filters to it.
-        FileChooser fileChooser = new FileChooser();
-        fileChooser.getExtensionFilters().addAll(
-                new FileChooser.ExtensionFilter("Text", "*.txt"),
-                new FileChooser.ExtensionFilter("All Files", "*")
-        );
 
         // Create the new file button.
         Button newFile = new Button();
@@ -113,15 +119,7 @@ public class TextEditor extends Application {
                         new Image(getClass().getResourceAsStream("/images/new.png"))));
         toolBar.getItems().add(newFile);
         newFile.setOnAction((ActionEvent e) -> {
-
-            showPossibleDataLossDialog(fileChooser, primaryStage, editingArea);
-
-            editingArea.clear();
-            currentFile = null;
-            hasBeenEdited = false;
-
-            primaryStage.setTitle("Text Editor - New File");
-            editingArea.requestFocus();
+            addNewTab();
         });
         newFile.setTooltip(new Tooltip("Create New File"));
 
@@ -136,23 +134,25 @@ public class TextEditor extends Application {
 
             if(temp != null) {
 
+                EditingArea editingArea = getActiveEditingArea();
+
                 editingArea.clear();
 
-                currentFile = temp;
+                editingArea.setCurrentFile(temp);
 
                 try {
-                    BufferedReader br = new BufferedReader(new FileReader(currentFile));
+                    BufferedReader br = new BufferedReader(new FileReader(editingArea.getCurrentFile()));
                     String line;
 
                     while ((line = br.readLine()) != null) {
                         editingArea.appendText(line + "\n");
                     }
 
-                    primaryStage.setTitle("Text Editor - " + currentFile.getName());
+                    tabPane.getSelectionModel().getSelectedItem().setText(editingArea.getCurrentFile().getName());
 
                     br.close();
-                    
-                    hasBeenEdited = false;
+
+                    editingArea.resetHasBeenEdited();
                     editingArea.requestFocus();
                 } catch (IOException err) {
                     showExceptionDialog(err);
@@ -169,18 +169,20 @@ public class TextEditor extends Application {
                         new Image(getClass().getResourceAsStream("/images/save.png"))));
         toolBar.getItems().add(saveFile);
         saveFile.setOnAction((ActionEvent e) -> {
-            if (currentFile == null) {
+            EditingArea editingArea = getActiveEditingArea();
+
+            if (editingArea.getCurrentFile() == null) {
                 File temp = fileChooser.showSaveDialog(primaryStage);
                 if (temp == null) {
                     return;
                 }
 
-                currentFile = temp;
+                editingArea.setCurrentFile(temp);
             }
 
-            saveFile(editingArea.getText());
+            saveFile(editingArea.getText(), editingArea.getCurrentFile(), editingArea);
 
-            primaryStage.setTitle("Text Editor - " + currentFile.getName());
+            tabPane.getSelectionModel().getSelectedItem().setText(editingArea.getCurrentFile().getName());
             editingArea.requestFocus();
         });
         saveFile.setTooltip(new Tooltip("Save File"));
@@ -198,11 +200,12 @@ public class TextEditor extends Application {
                 return;
             }
 
-            currentFile = temp;
+            EditingArea editingArea = getActiveEditingArea();
+            editingArea.setCurrentFile(temp);
 
-            saveFile(editingArea.getText());
-            
-            primaryStage.setTitle("Text Editor - " + currentFile.getName());
+            saveFile(editingArea.getText(), editingArea.getCurrentFile(), editingArea);
+
+            tabPane.getSelectionModel().getSelectedItem().setText(editingArea.getCurrentFile().getName());
             editingArea.requestFocus();
         });
         saveAs.setTooltip(new Tooltip("Save File As..."));
@@ -214,7 +217,44 @@ public class TextEditor extends Application {
                         new Image(getClass().getResourceAsStream("/images/exit.png"))));
         toolBar.getItems().add(exit);
         exit.setOnAction((ActionEvent e) -> {
-            if(showPossibleDataLossDialog(fileChooser, primaryStage, editingArea)) {
+
+            // TODO implement the design below.
+            
+            /*
+                Design Plan:
+                
+                File Name | Save button | Discard changes button
+            
+                When the user clicks on the save button, a save file dialog 
+                appears and the user either cancels it, or saves the file. If the
+                user saves the file, the list item (or table row) containing the
+                file will be removed and so on and so forth and what not. If the
+                user cancels the save file dialog, the item remains until the user
+                clicks the discard button. After all items are gone, the program
+                exits. 
+                
+                There will also be a discard all button, save all button, and a 
+                cancel button like usual.
+            
+                This should be completed tomorrow if there is time.
+            */
+            
+            if(tabPane.getTabs().isEmpty()) {
+                System.exit(0);
+            }
+
+            ObservableList<Tab> tabs = tabPane.getTabs();
+            boolean canExit = true;
+
+            for(Tab tab : tabs) {
+                EditingArea editingArea = (EditingArea)tab.getContent();
+
+                if(!showPossibleDataLossDialog(fileChooser, primaryStage, editingArea)) {
+                    canExit = false;
+                }
+            }
+
+            if(canExit) {
                 System.exit(0);
             }
         });
@@ -223,43 +263,33 @@ public class TextEditor extends Application {
         return toolBar;
     }
 
-
+    
     /**
-     * Creates the text area that the user will type in.
-     *
-     * @return The text area that the user will type in.
+     * Returns the active editing area.
+     * 
+     * @return the active editing area.
      */
-    private TextArea getTextEditorArea() {
-        TextArea textArea = new TextArea();
-
-        textArea.setPrefRowCount(20);
-        textArea.setPrefColumnCount(75);
-        textArea.setWrapText(true);
-        textArea.setFont(new Font("Arial", 12));
-        textArea.addEventFilter(KeyEvent.KEY_TYPED, (KeyEvent e) -> {
-            hasBeenEdited = true;
-        });
-
-        setupClipboard(textArea);
-
-        return textArea;
+    private EditingArea getActiveEditingArea() {
+        return (EditingArea)(tabPane.getSelectionModel().getSelectedItem().getContent());
     }
 
-
+    
     /**
-     * Sets up the right click and show items context menu.
-     *
-     * @param component     The component that the context menu should be shown in.
+     * Adds a new tab to the tabbed pane.
      */
-    private void setupClipboard(TextArea component) {
+    private void addNewTab() {
+        Tab tab = new Tab("New File");
 
-        ContextMenu contextMenu = new ContextMenu();
+        EditingArea editingArea = new EditingArea();
 
-        component.addEventHandler(MouseEvent.MOUSE_CLICKED, (MouseEvent e) -> {
-            if(e.getButton().equals(MouseButton.SECONDARY)) {
-                contextMenu.show(component, e.getX(), e.getY());
-            }
+        tab.setOnCloseRequest((Event e) -> {
+            showPossibleDataLossDialog(fileChooser, primaryStage, editingArea);
         });
+        
+        tab.setContent(editingArea);
+        tabPane.getTabs().add(tab);
+        tabPane.getSelectionModel().select(tab);
+        editingArea.requestFocus();
     }
 
 
@@ -268,15 +298,15 @@ public class TextEditor extends Application {
      *
      * @param content   The text to be saved to the file.
      */
-    private void saveFile(String content) {
-        try(PrintWriter pw = new PrintWriter(new BufferedWriter(new FileWriter(currentFile)));) {
+    private void saveFile(final String content, final File file, final EditingArea editingArea) {
+        try(PrintWriter pw = new PrintWriter(new BufferedWriter(new FileWriter(file)));) {
             pw.println(content);
             Alert alert = new Alert(AlertType.INFORMATION);
             alert.setTitle("File Saved");
             alert.setHeaderText(null);
             alert.setContentText("File Saved!");
             alert.showAndWait();
-            hasBeenEdited = false;
+            editingArea.resetHasBeenEdited();
         } catch (IOException err) {
             showExceptionDialog(err);
         }
@@ -295,9 +325,9 @@ public class TextEditor extends Application {
      */
     private boolean showPossibleDataLossDialog(final FileChooser fileChooser,
                                             final Stage primaryStage,
-                                            final TextArea editingArea) {
+                                            final EditingArea editingArea) {
 
-        if(hasBeenEdited) {
+        if(editingArea.getHasBeenEdited()) {
 
             Alert warning = new Alert(AlertType.WARNING);
             warning.setTitle("Warning!");
@@ -313,15 +343,15 @@ public class TextEditor extends Application {
             Optional<ButtonType> result = warning.showAndWait();
 
             if(result.get() == yes) {
-                if(currentFile == null) {
+                if(editingArea.getCurrentFile() == null || !(new File(editingArea.getCurrentFile().getAbsolutePath()).exists())) {
                     File temp = fileChooser.showSaveDialog(primaryStage);
                     if (temp == null) {
                         return false;
                     }
-                    currentFile = temp;
+                    editingArea.setCurrentFile(temp);
                 }
 
-                saveFile(editingArea.getText());
+                saveFile(editingArea.getText(), editingArea.getCurrentFile(), editingArea);
                 return true;
             } else if(result.get() == cancel) {
                 return false;
