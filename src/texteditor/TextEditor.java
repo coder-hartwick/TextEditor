@@ -139,33 +139,35 @@ public class TextEditor extends Application {
                         new Image(getClass().getResourceAsStream("/images/open.png"))));
         toolBar.getItems().add(openFile);
         openFile.setOnAction((ActionEvent e) -> {
-            File temp = fileChooser.showOpenDialog(primaryStage);
+            List<File> files = fileChooser.showOpenMultipleDialog(primaryStage);
 
-            if(temp != null) {
+            if(files != null) {
 
-                addNewTab();
+                for(File temp : files) {
+                    addNewTab();
 
-                EditingArea editingArea = getActiveEditingArea();
+                    EditingArea editingArea = getActiveEditingArea();
 
-                editingArea.setCurrentFile(temp);
+                    editingArea.setCurrentFile(temp);
 
-                try {
-                    BufferedReader br = new BufferedReader(new FileReader(editingArea.getCurrentFile()));
-                    String line;
+                    try {
+                        BufferedReader br = new BufferedReader(new FileReader(editingArea.getCurrentFile()));
+                        String line;
 
-                    while ((line = br.readLine()) != null) {
-                        editingArea.appendText(line + "\n");
+                        while ((line = br.readLine()) != null) {
+                            editingArea.appendText(line + "\n");
+                        }
+
+                        tabPane.getSelectionModel().getSelectedItem().setText(editingArea.getCurrentFile().getName());
+
+                        br.close();
+
+                        editingArea.resetHasBeenEdited();
+                        editingArea.requestFocus();
+                    } catch (IOException err) {
+                        showExceptionDialog(err);
+                        editingArea.requestFocus();
                     }
-
-                    tabPane.getSelectionModel().getSelectedItem().setText(editingArea.getCurrentFile().getName());
-
-                    br.close();
-
-                    editingArea.resetHasBeenEdited();
-                    editingArea.requestFocus();
-                } catch (IOException err) {
-                    showExceptionDialog(err);
-                    editingArea.requestFocus();
                 }
             }
         });
