@@ -8,12 +8,14 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import javafx.application.Application;
+import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.event.Event;
-import javafx.event.EventHandler;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Alert.AlertType;
@@ -21,6 +23,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar.ButtonData;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.Label;
+import javafx.scene.control.ListView;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 import javafx.scene.control.TextArea;
@@ -62,6 +65,12 @@ public class TextEditor extends Application {
     private Stage primaryStage;
 
 
+    /**
+     * The amount of documents created.
+     */
+    private int documentIndex = 1;
+
+    
     /*
         The start method will create the scene and add the components to it.
     */
@@ -78,7 +87,7 @@ public class TextEditor extends Application {
 
         borderPane.setTop(tb);
         borderPane.setCenter(tabPane);
-        
+
         addNewTab();
 
         fileChooser = new FileChooser();
@@ -134,9 +143,9 @@ public class TextEditor extends Application {
 
             if(temp != null) {
 
-                EditingArea editingArea = getActiveEditingArea();
+                addNewTab();
 
-                editingArea.clear();
+                EditingArea editingArea = getActiveEditingArea();
 
                 editingArea.setCurrentFile(temp);
 
@@ -217,75 +226,124 @@ public class TextEditor extends Application {
                         new Image(getClass().getResourceAsStream("/images/exit.png"))));
         toolBar.getItems().add(exit);
         exit.setOnAction((ActionEvent e) -> {
-
-            // TODO implement the design below.
-            
-            /*
-                Design Plan:
-                
-                File Name | Save button | Discard changes button
-            
-                When the user clicks on the save button, a save file dialog 
-                appears and the user either cancels it, or saves the file. If the
-                user saves the file, the list item (or table row) containing the
-                file will be removed and so on and so forth and what not. If the
-                user cancels the save file dialog, the item remains until the user
-                clicks the discard button. After all items are gone, the program
-                exits. 
-                
-                There will also be a discard all button, save all button, and a 
-                cancel button like usual.
-            
-                This should be completed tomorrow if there is time.
-            */
-            
-            if(tabPane.getTabs().isEmpty()) {
-                System.exit(0);
-            }
-
-            ObservableList<Tab> tabs = tabPane.getTabs();
-            boolean canExit = true;
-
-            for(Tab tab : tabs) {
-                EditingArea editingArea = (EditingArea)tab.getContent();
-
-                if(!showPossibleDataLossDialog(fileChooser, primaryStage, editingArea)) {
-                    canExit = false;
-                }
-            }
-
-            if(canExit) {
-                System.exit(0);
-            }
+            exitProgram();
         });
         exit.setTooltip(new Tooltip("Quit The Program"));
 
         return toolBar;
     }
 
-    
+
+    /**
+     * Exits the program. Will display if the user has unsaved changes.
+     */
+    private void exitProgram() {
+        ObservableList<Tab> tabs = tabPane.getTabs();
+        if(tabs.isEmpty()) {
+            System.exit(0);
+        }
+
+        List<EditingArea> unsavedEditingAreas = new ArrayList();
+        ObservableList<String> unsavedDocuments = FXCollections.observableArrayList();
+
+        // Get the unsaved documents.
+        for(Tab tab : tabs) {
+            EditingArea editingArea = (EditingArea)tab.getContent();
+
+            if(editingArea.getHasBeenEdited()) {
+                unsavedDocuments.add(tab.getText());
+                unsavedEditingAreas.add(editingArea);
+            }
+        }
+
+        if(unsavedDocuments.isEmpty()) {
+            System.exit(0);
+        }
+
+        // Create the unsaved documents list.
+        ListView<String> unsaved = new ListView(unsavedDocuments);
+        unsaved.setMaxWidth(Double.MAX_VALUE);
+        unsaved.setMaxHeight(Double.MAX_VALUE);
+
+        final int rowHeight = 24;
+
+        unsaved.setPrefHeight(unsavedDocuments.size() * rowHeight + 2);
+
+        // Set up the alert dialog.
+        Alert alert = new Alert(AlertType.WARNING);
+        alert.setTitle("Unsaved Changes");
+        alert.setHeaderText(null);
+
+        ButtonType discardAll = new ButtonType("Discard All");
+        ButtonType save = new ButtonType("Save");
+        ButtonType cancel = new ButtonType("Cancel", ButtonData.CANCEL_CLOSE);
+        alert.getButtonTypes().setAll(discardAll, save, cancel);
+
+        Label label = new Label("You have files with unsaved changes");
+
+        GridPane.setVgrow(unsaved, Priority.ALWAYS);
+        GridPane.setHgrow(unsaved, Priority.ALWAYS);
+
+        GridPane gp = new GridPane();
+        gp.setMaxWidth(Double.MAX_VALUE);
+        gp.add(label, 0, 0);
+        gp.add(unsaved, 0, 1);
+
+        alert.getDialogPane().setContent(gp);
+
+        Optional<ButtonType> result = alert.showAndWait();
+
+        if(result.get() == discardAll) {
+            System.exit(0);
+        } else if(result.get() == save) {
+            EditingArea editingArea = unsavedEditingAreas.get(unsaved.getSelectionModel().getSelectedIndex());
+            if(editingArea.getCurrentFile() == null || !(new File(editingArea.getCurrentFile().getAbsolutePath()).exists())) {
+                File temp = fileChooser.showSaveDialog(primaryStage);
+                if(temp == null) {
+                    exitProgram();
+                }
+                editingArea.setCurrentFile(temp);
+            }
+            
+            saveFile(editingArea.getText(), editingArea.getCurrentFile(), editingArea);
+            
+            // Check if the file got saved.
+            if(!editingArea.getHasBeenEdited()) {
+                unsavedEditingAreas.remove(editingArea);
+                unsaved.getItems().remove(unsaved.getSelectionModel().getSelectedIndex());   
+            }
+            
+            exitProgram();
+        }
+    }
+
+
     /**
      * Returns the active editing area.
-     * 
+     *
      * @return the active editing area.
      */
     private EditingArea getActiveEditingArea() {
         return (EditingArea)(tabPane.getSelectionModel().getSelectedItem().getContent());
     }
 
-    
+
     /**
      * Adds a new tab to the tabbed pane.
      */
     private void addNewTab() {
-        Tab tab = new Tab("New File");
+        Tab tab = new Tab("Unsaved Document " + documentIndex);
+
+        documentIndex++;
 
         EditingArea editingArea = new EditingArea();
 
         tab.setOnCloseRequest((Event e) -> {
-            showPossibleDataLossDialog(fileChooser, primaryStage, editingArea);
+            if(showPossibleDataLossDialog(fileChooser, primaryStage, editingArea)) {
+                documentIndex--;
+            }
         });
-        
+
         tab.setContent(editingArea);
         tabPane.getTabs().add(tab);
         tabPane.getSelectionModel().select(tab);
