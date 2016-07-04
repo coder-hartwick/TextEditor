@@ -74,12 +74,6 @@ public class PrinterWorker {
                 alert.setHeaderText(null);
                 alert.setContentText("Finished Printing!");
                 alert.showAndWait();
-            } else {
-                Alert alert = new Alert(AlertType.ERROR);
-                alert.setTitle("Error Printing Document!");
-                alert.setHeaderText(null);
-                alert.setContentText("There was an error printing the document!");
-                alert.showAndWait();
             }
         });
         
