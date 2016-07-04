@@ -31,6 +31,10 @@ import javafx.scene.control.ToolBar;
 import javafx.scene.control.Tooltip;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyCodeCombination;
+import javafx.scene.input.KeyCombination;
+import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Priority;
@@ -69,8 +73,14 @@ public class TextEditor extends Application {
      * The amount of documents created.
      */
     private int documentIndex = 1;
-
     
+    
+    /**
+     * Buttons for the tool bar.
+     */
+    private Button newFile, openFile, saveFile, saveAs, print, exit;
+
+
     /*
         The start method will create the scene and add the components to it.
     */
@@ -122,7 +132,7 @@ public class TextEditor extends Application {
         ToolBar toolBar = new ToolBar();
 
         // Create the new file button.
-        Button newFile = new Button();
+        newFile = new Button();
         newFile.setGraphic(
                 new ImageView(
                         new Image(getClass().getResourceAsStream("/images/new.png"))));
@@ -133,107 +143,75 @@ public class TextEditor extends Application {
         newFile.setTooltip(new Tooltip("Create New File"));
 
         // Create the open file button.
-        Button openFile = new Button();
+        openFile = new Button();
         openFile.setGraphic(
                 new ImageView(
                         new Image(getClass().getResourceAsStream("/images/open.png"))));
         toolBar.getItems().add(openFile);
         openFile.setOnAction((ActionEvent e) -> {
-            List<File> files = fileChooser.showOpenMultipleDialog(primaryStage);
-
-            if(files != null) {
-
-                for(File temp : files) {
-                    addNewTab();
-
-                    EditingArea editingArea = getActiveEditingArea();
-
-                    editingArea.setCurrentFile(temp);
-
-                    try {
-                        BufferedReader br = new BufferedReader(new FileReader(editingArea.getCurrentFile()));
-                        String line;
-
-                        while ((line = br.readLine()) != null) {
-                            editingArea.appendText(line + "\n");
-                        }
-
-                        tabPane.getSelectionModel().getSelectedItem().setText(editingArea.getCurrentFile().getName());
-
-                        br.close();
-
-                        editingArea.resetHasBeenEdited();
-                        editingArea.requestFocus();
-                    } catch (IOException err) {
-                        showExceptionDialog(err);
-                        editingArea.requestFocus();
-                    }
-                }
-            }
+            openFile();
         });
         openFile.setTooltip(new Tooltip("Open File"));
 
         // Create the save file button.
-        Button saveFile = new Button();
+        saveFile = new Button();
         saveFile.setGraphic(
                 new ImageView(
                         new Image(getClass().getResourceAsStream("/images/save.png"))));
         toolBar.getItems().add(saveFile);
         saveFile.setOnAction((ActionEvent e) -> {
-            EditingArea editingArea = getActiveEditingArea();
-
-            if (editingArea.getCurrentFile() == null) {
-                File temp = fileChooser.showSaveDialog(primaryStage);
-                if (temp == null) {
-                    return;
-                }
-
-                editingArea.setCurrentFile(temp);
+            if(tabPane.getTabs().isEmpty()) {
+                return;
             }
-
-            saveFile(editingArea.getText(), editingArea.getCurrentFile(), editingArea);
-
-            tabPane.getSelectionModel().getSelectedItem().setText(editingArea.getCurrentFile().getName());
+            
+            EditingArea editingArea = getActiveEditingArea();
+            
+            if(saveFile(editingArea, false)) {
+                tabPane.getSelectionModel().getSelectedItem().setText(editingArea.getCurrentFile().getName());
+            }
+            
             editingArea.requestFocus();
         });
         saveFile.setTooltip(new Tooltip("Save File"));
 
         // Create the save as button.
-        Button saveAs = new Button();
+        saveAs = new Button();
         saveAs.setGraphic(
                 new ImageView(
                         new Image(getClass().getResourceAsStream("/images/save_as.png"))));
         toolBar.getItems().add(saveAs);
         saveAs.setOnAction((ActionEvent e) -> {
-            File temp = fileChooser.showSaveDialog(primaryStage);
-
-            if(temp == null) {
+            if(tabPane.getTabs().isEmpty()) {
                 return;
-            }
-
+            }            
+            
             EditingArea editingArea = getActiveEditingArea();
-            editingArea.setCurrentFile(temp);
-
-            saveFile(editingArea.getText(), editingArea.getCurrentFile(), editingArea);
-
-            tabPane.getSelectionModel().getSelectedItem().setText(editingArea.getCurrentFile().getName());
+            if(saveFile(editingArea, true)) {
+                tabPane.getSelectionModel().getSelectedItem().setText(editingArea.getCurrentFile().getName());
+            }
+            
             editingArea.requestFocus();
         });
         saveAs.setTooltip(new Tooltip("Save File As..."));
-        
+
         // Create the print button.
-        Button print = new Button();
+        print = new Button();
         print.setGraphic(
                 new ImageView(
                         new Image(getClass().getResourceAsStream("/images/print.png"))));
         toolBar.getItems().add(print);
         print.setOnAction((ActionEvent e) -> {
-            new PrinterWorker(getActiveEditingArea()).print();
+            if(tabPane.getTabs().isEmpty()) {
+                return;
+            }
+            
+            EditingArea editingArea = getActiveEditingArea();
+            new PrinterWorker(editingArea).print();
         });
         print.setTooltip(new Tooltip("Print the current document."));
 
         // Create exit button.
-        Button exit = new Button();
+        exit = new Button();
         exit.setGraphic(
                 new ImageView(
                         new Image(getClass().getResourceAsStream("/images/exit.png"))));
@@ -244,7 +222,6 @@ public class TextEditor extends Application {
         exit.setTooltip(new Tooltip("Quit The Program"));
 
         return toolBar;
-        
     }
 
 
@@ -311,22 +288,12 @@ public class TextEditor extends Application {
             System.exit(0);
         } else if(result.get() == save) {
             EditingArea editingArea = unsavedEditingAreas.get(unsaved.getSelectionModel().getSelectedIndex());
-            if(editingArea.getCurrentFile() == null || !(new File(editingArea.getCurrentFile().getAbsolutePath()).exists())) {
-                File temp = fileChooser.showSaveDialog(primaryStage);
-                if(temp == null) {
-                    exitProgram();
-                }
-                editingArea.setCurrentFile(temp);
-            }
-            
-            saveFile(editingArea.getText(), editingArea.getCurrentFile(), editingArea);
-            
-            // Check if the file got saved.
-            if(!editingArea.getHasBeenEdited()) {
+
+            if(saveFile(editingArea, false)) {
                 unsavedEditingAreas.remove(editingArea);
-                unsaved.getItems().remove(unsaved.getSelectionModel().getSelectedIndex());   
+                unsaved.getItems().remove(unsaved.getSelectionModel().getSelectedIndex());
             }
-            
+
             exitProgram();
         }
     }
@@ -353,7 +320,7 @@ public class TextEditor extends Application {
         EditingArea editingArea = new EditingArea();
 
         tab.setOnCloseRequest((Event e) -> {
-            if(showPossibleDataLossDialog(fileChooser, primaryStage, editingArea)) {
+            if(showPossibleDataLossDialog(editingArea)) {
                 documentIndex--;
             }
         });
@@ -361,7 +328,75 @@ public class TextEditor extends Application {
         tab.setContent(editingArea);
         tabPane.getTabs().add(tab);
         tabPane.getSelectionModel().select(tab);
+        
+        // Add key combinations for keyboard shortcuts.
+        KeyCodeCombination saveKC = new KeyCodeCombination(KeyCode.S, KeyCombination.CONTROL_DOWN);
+        KeyCodeCombination saveAsKC = new KeyCodeCombination(KeyCode.S, KeyCombination.CONTROL_DOWN, KeyCombination.SHIFT_DOWN);
+        KeyCodeCombination openKC = new KeyCodeCombination(KeyCode.O, KeyCombination.CONTROL_DOWN);
+        KeyCodeCombination quitKC = new KeyCodeCombination(KeyCode.Q, KeyCombination.CONTROL_DOWN);
+        KeyCodeCombination newKC = new KeyCodeCombination(KeyCode.N, KeyCombination.CONTROL_DOWN);
+        KeyCodeCombination printKC = new KeyCodeCombination(KeyCode.P, KeyCombination.CONTROL_DOWN);
+        
+        editingArea.addEventFilter(KeyEvent.KEY_RELEASED, (KeyEvent e) -> {
+            if(saveAsKC.match(e)) {
+                if(saveFile(getActiveEditingArea(), true)) {
+                    tabPane.getSelectionModel().getSelectedItem().setText(editingArea.getCurrentFile().getName());
+                }
+            } else if(saveKC.match(e)) {
+                if(saveFile(getActiveEditingArea(), false)) {
+                    tabPane.getSelectionModel().getSelectedItem().setText(editingArea.getCurrentFile().getName());
+                }
+                
+            } else if(openKC.match(e)) {
+                openFile();
+            } else if(quitKC.match(e)) {
+                exitProgram();
+            } else if(newKC.match(e)) {
+                addNewTab();
+            } else if(printKC.match(e)) {
+                new PrinterWorker(getActiveEditingArea()).print();
+            }
+        });
+        
         editingArea.requestFocus();
+    }
+    
+    
+    /**
+     * Allows the user to open a file.
+     */
+    private void openFile() {
+        fileChooser.setTitle("Open File");
+        List<File> files = fileChooser.showOpenMultipleDialog(primaryStage);
+
+        if(files != null) {
+
+            for(File temp : files) {
+                
+                addNewTab();
+                EditingArea editingArea = getActiveEditingArea();
+                editingArea.setCurrentFile(temp);
+
+                try {
+                    BufferedReader br = new BufferedReader(new FileReader(editingArea.getCurrentFile()));
+                    String line;
+
+                    while((line = br.readLine()) != null) {
+                        editingArea.appendText(line + "\n");
+                    }
+
+                    tabPane.getSelectionModel().getSelectedItem().setText(editingArea.getCurrentFile().getName());
+
+                    br.close();
+
+                    editingArea.resetHasBeenEdited();
+                    editingArea.requestFocus();
+                } catch (IOException err) {
+                    showExceptionDialog(err);
+                    editingArea.requestFocus();
+                }
+            }
+        }
     }
 
 
@@ -370,17 +405,38 @@ public class TextEditor extends Application {
      *
      * @param content   The text to be saved to the file.
      */
-    private void saveFile(final String content, final File file, final EditingArea editingArea) {
-        try(PrintWriter pw = new PrintWriter(new BufferedWriter(new FileWriter(file)));) {
-            pw.println(content);
+    private boolean saveFile(final EditingArea editingArea, final boolean saveAs) {
+
+        fileChooser.setTitle("Save File");
+        
+        if(saveAs) {
+            File temp = fileChooser.showSaveDialog(primaryStage);
+            if(temp == null) {
+                return false;
+            }
+            editingArea.setCurrentFile(temp);
+        } else if(editingArea.getCurrentFile() == null
+                || !(new File(editingArea.getCurrentFile().getAbsolutePath()).exists())) {
+
+            File temp = fileChooser.showSaveDialog(primaryStage);
+            if(temp == null) {
+                return false;
+            }
+            editingArea.setCurrentFile(temp);
+        }
+
+        try(PrintWriter pw = new PrintWriter(new BufferedWriter(new FileWriter(editingArea.getCurrentFile())));) {
+            pw.println(editingArea.getText());
             Alert alert = new Alert(AlertType.INFORMATION);
             alert.setTitle("File Saved");
             alert.setHeaderText(null);
             alert.setContentText("File Saved!");
             alert.showAndWait();
             editingArea.resetHasBeenEdited();
+            return true;
         } catch (IOException err) {
             showExceptionDialog(err);
+            return false;
         }
     }
 
@@ -390,14 +446,10 @@ public class TextEditor extends Application {
      * asks if they want to save their changes before creating a new file or
      * exiting the program.
      *
-     * @param fileChooser   The file chooser that is shown if they want to save.
-     * @param primaryStage  The parent window of the file chooser.
      * @param editingArea   The text area that contains the text the user typed.
      * @return true if the application can exit; false if not.
      */
-    private boolean showPossibleDataLossDialog(final FileChooser fileChooser,
-                                            final Stage primaryStage,
-                                            final EditingArea editingArea) {
+    private boolean showPossibleDataLossDialog(final EditingArea editingArea) {
 
         if(editingArea.getHasBeenEdited()) {
 
@@ -415,15 +467,7 @@ public class TextEditor extends Application {
             Optional<ButtonType> result = warning.showAndWait();
 
             if(result.get() == yes) {
-                if(editingArea.getCurrentFile() == null || !(new File(editingArea.getCurrentFile().getAbsolutePath()).exists())) {
-                    File temp = fileChooser.showSaveDialog(primaryStage);
-                    if (temp == null) {
-                        return false;
-                    }
-                    editingArea.setCurrentFile(temp);
-                }
-
-                saveFile(editingArea.getText(), editingArea.getCurrentFile(), editingArea);
+                saveFile(editingArea, false);
                 return true;
             } else if(result.get() == cancel) {
                 return false;
@@ -438,7 +482,7 @@ public class TextEditor extends Application {
      *
      * @param e     The exception that was thrown.
      */
-    private void showExceptionDialog(Throwable e) {
+    private void showExceptionDialog(final Throwable e) {
         StringWriter sw = new StringWriter();
         PrintWriter pw = new PrintWriter(sw);
         e.printStackTrace(pw);
@@ -465,7 +509,6 @@ public class TextEditor extends Application {
         gp.add(ta, 0, 1);
 
         alert.getDialogPane().setExpandableContent(ta);
-
         alert.showAndWait();
     }
 }
