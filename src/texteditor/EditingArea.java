@@ -54,18 +54,39 @@ public class EditingArea extends TextArea {
     }
     
     
+    /**
+     * Sets the current file for this TextArea.
+     * 
+     * @param file  The active file for this TextArea.
+     */
     public void setCurrentFile(File file) {
         currentFile = file;
     }
     
+    
+    /**
+     * Returns the current file for this text area.
+     * 
+     * @return  The current file for this text area.
+     */
     public File getCurrentFile() {
         return currentFile;
     }
     
+    
+    /**
+     * Returns whether or not this text area has been edited.
+     * 
+     * @return  Whether or not this text area has been edited.
+     */
     public boolean getHasBeenEdited() {
         return hasBeenEdited;
     }
     
+    
+    /**
+     * Sets the hasBeenEdited variable in this text area to false.
+     */
     public void resetHasBeenEdited() {
         hasBeenEdited = false;
     }

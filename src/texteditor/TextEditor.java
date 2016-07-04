@@ -220,6 +220,17 @@ public class TextEditor extends Application {
             editingArea.requestFocus();
         });
         saveAs.setTooltip(new Tooltip("Save File As..."));
+        
+        // Create the print button.
+        Button print = new Button();
+        print.setGraphic(
+                new ImageView(
+                        new Image(getClass().getResourceAsStream("/images/print.png"))));
+        toolBar.getItems().add(print);
+        print.setOnAction((ActionEvent e) -> {
+            new PrinterWorker(getActiveEditingArea()).print();
+        });
+        print.setTooltip(new Tooltip("Print the current document."));
 
         // Create exit button.
         Button exit = new Button();
@@ -233,6 +244,7 @@ public class TextEditor extends Application {
         exit.setTooltip(new Tooltip("Quit The Program"));
 
         return toolBar;
+        
     }
 
 
