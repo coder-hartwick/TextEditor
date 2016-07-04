@@ -108,7 +108,9 @@ public class TextEditor extends Application {
         );
         
         primaryStage.setOnCloseRequest((WindowEvent e) -> {
-            exitProgram();
+            if(!exitProgram()) {
+                e.consume();
+            }
         });
 
         Scene scene = new Scene(borderPane, 500, 500);
@@ -233,7 +235,7 @@ public class TextEditor extends Application {
     /**
      * Exits the program. Will display if the user has unsaved changes.
      */
-    private void exitProgram() {
+    private boolean exitProgram() {
         ObservableList<Tab> tabs = tabPane.getTabs();
         if(tabs.isEmpty()) {
             System.exit(0);
@@ -300,7 +302,10 @@ public class TextEditor extends Application {
             }
 
             exitProgram();
+        } else {
+            return false;
         }
+        return true;
     }
 
 
