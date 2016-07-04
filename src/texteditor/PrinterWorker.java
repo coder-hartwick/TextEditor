@@ -89,6 +89,7 @@ public class PrinterWorker {
             alert.setTitle("Error");
             alert.setHeaderText(null);
             alert.setContentText("The printing task encountered an error.");
+            alert.showAndWait();
         });
 
         // Start the printing task.
