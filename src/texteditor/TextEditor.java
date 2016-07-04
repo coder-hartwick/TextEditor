@@ -40,6 +40,7 @@ import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Priority;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
+import javafx.stage.WindowEvent;
 
 
 /**
@@ -105,6 +106,10 @@ public class TextEditor extends Application {
                 new FileChooser.ExtensionFilter("Text", "*.txt"),
                 new FileChooser.ExtensionFilter("All Files", "*")
         );
+        
+        primaryStage.setOnCloseRequest((WindowEvent e) -> {
+            exitProgram();
+        });
 
         Scene scene = new Scene(borderPane, 500, 500);
 
