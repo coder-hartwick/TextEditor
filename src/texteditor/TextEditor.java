@@ -44,9 +44,9 @@ import javafx.stage.WindowEvent;
 
 
 /**
- * TextEditor is a very basic text editor that allows the user to open, save, and
- * create files.
- *
+ * TextEditor is a very simple text editing application that allows the user to
+ * create, open, save, edit, and print files.
+ * 
  * @author Jordan Hartwick
  */
 public class TextEditor extends Application {
@@ -74,17 +74,25 @@ public class TextEditor extends Application {
      * The amount of documents created.
      */
     private int documentIndex = 1;
-    
-    
+
+
     /**
      * Buttons for the tool bar.
      */
     private Button newFile, openFile, saveFile, saveAs, print, exit;
 
+    
+    /**
+     * @param args the command line arguments
+     */
+    public static void main(String[] args) {
+        launch(args);
+    }    
+    
 
     /*
-        The start method will create the scene and add the components to it.
-    */
+     * The start method will create the scene and add the components to it.
+     */
     @Override
     public void start(Stage primaryStage) {
 
@@ -106,7 +114,7 @@ public class TextEditor extends Application {
                 new FileChooser.ExtensionFilter("Text", "*.txt"),
                 new FileChooser.ExtensionFilter("All Files", "*")
         );
-        
+
         primaryStage.setOnCloseRequest((WindowEvent e) -> {
             if(!exitProgram()) {
                 e.consume();
@@ -118,22 +126,16 @@ public class TextEditor extends Application {
         primaryStage.setTitle("Text Editor");
         primaryStage.setScene(scene);
         primaryStage.show();
+        
+        getActiveEditingArea().requestFocus();
     }
 
 
     /**
-     * @param args the command line arguments
-     */
-    public static void main(String[] args) {
-        launch(args);
-    }
-
-
-    /**
-     * Creates and returns the tool bar that appears at the top of the window.
-     *
-     * @return  The tool bar that contains the new, open, save,save as, and exit
-     *          buttons.
+     * Returns a tool bar that contains the following buttons:
+     * New File, Open File, Save File, Save As, Print File, Exit Program.
+     * 
+     * @return  The tool bar containing the mentioned buttons.
      */
     private ToolBar getToolBar() {
         ToolBar toolBar = new ToolBar();
@@ -147,7 +149,7 @@ public class TextEditor extends Application {
         newFile.setOnAction((ActionEvent e) -> {
             addNewTab();
         });
-        newFile.setTooltip(new Tooltip("Create New File"));
+        newFile.setTooltip(new Tooltip("Create New File - CTRL + N"));
 
         // Create the open file button.
         openFile = new Button();
@@ -158,7 +160,7 @@ public class TextEditor extends Application {
         openFile.setOnAction((ActionEvent e) -> {
             openFile();
         });
-        openFile.setTooltip(new Tooltip("Open File"));
+        openFile.setTooltip(new Tooltip("Open File - CTRL + O"));
 
         // Create the save file button.
         saveFile = new Button();
@@ -170,16 +172,16 @@ public class TextEditor extends Application {
             if(tabPane.getTabs().isEmpty()) {
                 return;
             }
-            
+
             EditingArea editingArea = getActiveEditingArea();
-            
+
             if(saveFile(editingArea, false)) {
                 tabPane.getSelectionModel().getSelectedItem().setText(editingArea.getCurrentFile().getName());
             }
-            
+
             editingArea.requestFocus();
         });
-        saveFile.setTooltip(new Tooltip("Save File"));
+        saveFile.setTooltip(new Tooltip("Save File - CTRL + S"));
 
         // Create the save as button.
         saveAs = new Button();
@@ -190,16 +192,16 @@ public class TextEditor extends Application {
         saveAs.setOnAction((ActionEvent e) -> {
             if(tabPane.getTabs().isEmpty()) {
                 return;
-            }            
-            
+            }
+
             EditingArea editingArea = getActiveEditingArea();
             if(saveFile(editingArea, true)) {
                 tabPane.getSelectionModel().getSelectedItem().setText(editingArea.getCurrentFile().getName());
             }
-            
+
             editingArea.requestFocus();
         });
-        saveAs.setTooltip(new Tooltip("Save File As..."));
+        saveAs.setTooltip(new Tooltip("Save File As - CTRL + Shift + S"));
 
         // Create the print button.
         print = new Button();
@@ -211,11 +213,11 @@ public class TextEditor extends Application {
             if(tabPane.getTabs().isEmpty()) {
                 return;
             }
-            
+
             EditingArea editingArea = getActiveEditingArea();
             new PrinterWorker(editingArea).print();
         });
-        print.setTooltip(new Tooltip("Print the current document."));
+        print.setTooltip(new Tooltip("Print the current document - CTRL + P"));
 
         // Create exit button.
         exit = new Button();
@@ -226,14 +228,199 @@ public class TextEditor extends Application {
         exit.setOnAction((ActionEvent e) -> {
             exitProgram();
         });
-        exit.setTooltip(new Tooltip("Quit The Program"));
+        exit.setTooltip(new Tooltip("Quit The Program - CTRL + Q"));
 
         return toolBar;
     }
 
 
     /**
-     * Exits the program. Will display if the user has unsaved changes.
+     * Returns the currently selected editing area.
+     * 
+     * @return  The currently selected editing area.
+     */
+    private EditingArea getActiveEditingArea() {
+        return (EditingArea)(tabPane.getSelectionModel().getSelectedItem().getContent());
+    }
+
+
+    /**
+     * Adds a new tab to the Tab Pane.
+     */
+    private void addNewTab() {
+        Tab tab = new Tab("Unsaved Document " + documentIndex);
+
+        documentIndex++;
+
+        EditingArea editingArea = new EditingArea();
+
+        tab.setOnCloseRequest((Event e) -> {
+            if(showPossibleDataLossDialog(editingArea)) {
+                documentIndex--;
+            } else {
+                e.consume();
+            }
+        });
+
+        tab.setContent(editingArea);
+        tabPane.getTabs().add(tab);
+        tabPane.getSelectionModel().select(tab);
+
+        // Add key combinations for keyboard shortcuts.
+        KeyCodeCombination saveKC = new KeyCodeCombination(KeyCode.S, KeyCombination.CONTROL_DOWN);
+        KeyCodeCombination saveAsKC = new KeyCodeCombination(KeyCode.S, KeyCombination.CONTROL_DOWN, KeyCombination.SHIFT_DOWN);
+        KeyCodeCombination openKC = new KeyCodeCombination(KeyCode.O, KeyCombination.CONTROL_DOWN);
+        KeyCodeCombination quitKC = new KeyCodeCombination(KeyCode.Q, KeyCombination.CONTROL_DOWN);
+        KeyCodeCombination newKC = new KeyCodeCombination(KeyCode.N, KeyCombination.CONTROL_DOWN);
+        KeyCodeCombination printKC = new KeyCodeCombination(KeyCode.P, KeyCombination.CONTROL_DOWN);
+        
+        editingArea.addEventFilter(KeyEvent.KEY_PRESSED, (KeyEvent e) -> {
+            if(saveAsKC.match(e)) {
+                if(saveFile(getActiveEditingArea(), true)) {
+                    tabPane.getSelectionModel().getSelectedItem().setText(editingArea.getCurrentFile().getName());
+                }
+            } else if(saveKC.match(e)) {
+                if(saveFile(getActiveEditingArea(), false)) {
+                    tabPane.getSelectionModel().getSelectedItem().setText(editingArea.getCurrentFile().getName());
+                }
+            } else if(openKC.match(e)) {
+                openFile();
+            } else if(quitKC.match(e)) {
+                exitProgram();
+            } else if(newKC.match(e)) {
+                addNewTab();
+            } else if(printKC.match(e)) {
+                new PrinterWorker(editingArea).print();
+            }
+        });
+
+        editingArea.resetHasBeenEdited();
+        editingArea.requestFocus();
+    }
+
+
+    /**
+     * Shows a dialog telling the user that they may lose any unsaved changes if
+     * the close the current tab, if the content in the current tab needs to
+     * be saved.
+     * 
+     * @param editingArea   The EditingArea that contains the content that may 
+     *                      need to be save.
+     * @return  Whether or not it is safe to close the current tab.
+     */
+    private boolean showPossibleDataLossDialog(final EditingArea editingArea) {
+
+        if(isFileSaveNeeded(editingArea)) {
+
+            Alert warning = new Alert(AlertType.WARNING);
+            warning.setTitle("Warning!");
+            warning.setHeaderText(null);
+            warning.setContentText("You have unsaved changes. Would you like to save them?");
+
+            ButtonType yes = new ButtonType("Yes", ButtonData.YES);
+            ButtonType no = new ButtonType("No", ButtonData.NO);
+            ButtonType cancel = new ButtonType("Cancel", ButtonData.CANCEL_CLOSE);
+
+            warning.getButtonTypes().setAll(no, yes, cancel);
+
+            Optional<ButtonType> result = warning.showAndWait();
+
+            if(result.get() == yes) {
+                return saveFile(editingArea, false);
+            } else if(result.get() == cancel) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+
+    /**
+     * Used to aid in the opening of multiple files.
+     */
+    private void openFile() {
+        fileChooser.setTitle("Open File");
+        List<File> files = fileChooser.showOpenMultipleDialog(primaryStage);
+
+        if(files != null) {
+
+            for(File temp : files) {
+
+                addNewTab();
+                EditingArea editingArea = getActiveEditingArea();
+                editingArea.setCurrentFile(temp);
+
+                try (BufferedReader br = new BufferedReader(new FileReader(editingArea.getCurrentFile()))) {
+                    
+                    String line;
+
+                    while((line = br.readLine()) != null) {
+                        editingArea.appendText(line + "\n");
+                    }
+
+                    tabPane.getSelectionModel().getSelectedItem().setText(editingArea.getCurrentFile().getName());
+
+                    br.close();
+
+                    editingArea.resetHasBeenEdited();
+                    editingArea.requestFocus();
+                } catch (IOException err) {
+                    showExceptionDialog(err);
+                    editingArea.requestFocus();
+                }
+            }
+        }
+    }
+
+
+    /**
+     * Returns whether or not the file has been saved.
+     * 
+     * @param editingArea   The editingArea that contains the content that needs
+     *                      to be saved.
+     * @param saveAs        Whether or not the file chooser should automatically
+     *                      be saved.
+     * @return  Whether or not the content in the editingArea has been saved.
+     */
+    private boolean saveFile(final EditingArea editingArea, final boolean saveAs) {
+
+        fileChooser.setTitle("Save File");
+
+        if(saveAs) {
+            File temp = fileChooser.showSaveDialog(primaryStage);
+            if(temp == null) {
+                return false;
+            }
+            editingArea.setCurrentFile(temp);
+        } else if(isFileSaveNeeded(editingArea)) {
+
+            File temp = fileChooser.showSaveDialog(primaryStage);
+            if(temp == null) {
+                return false;
+            }
+            editingArea.setCurrentFile(temp);
+        }
+
+        try(PrintWriter pw = new PrintWriter(new BufferedWriter(new FileWriter(editingArea.getCurrentFile())));) {
+            pw.println(editingArea.getText());
+            Alert alert = new Alert(AlertType.INFORMATION);
+            alert.setTitle("File Saved");
+            alert.setHeaderText(null);
+            alert.setContentText("File Saved!");
+            alert.showAndWait();
+            editingArea.resetHasBeenEdited();
+            return true;
+        } catch (IOException err) {
+            showExceptionDialog(err);
+            return false;
+        }
+    }
+
+
+    /**
+     * Returns whether or not it is safe to exit the program.
+     * 
+     * @return  true if it is save to exit the program; false if not.
      */
     private boolean exitProgram() {
         ObservableList<Tab> tabs = tabPane.getTabs();
@@ -248,7 +435,7 @@ public class TextEditor extends Application {
         for(Tab tab : tabs) {
             EditingArea editingArea = (EditingArea)tab.getContent();
 
-            if(editingArea.getHasBeenEdited()) {
+            if(isFileSaveNeeded(editingArea)) {
                 unsavedDocuments.add(tab.getText());
                 unsavedEditingAreas.add(editingArea);
             }
@@ -289,6 +476,8 @@ public class TextEditor extends Application {
 
         alert.getDialogPane().setContent(gp);
 
+        unsaved.getSelectionModel().selectFirst();
+
         Optional<ButtonType> result = alert.showAndWait();
 
         if(result.get() == discardAll) {
@@ -308,184 +497,23 @@ public class TextEditor extends Application {
         return true;
     }
 
-
-    /**
-     * Returns the active editing area.
-     *
-     * @return the active editing area.
-     */
-    private EditingArea getActiveEditingArea() {
-        return (EditingArea)(tabPane.getSelectionModel().getSelectedItem().getContent());
-    }
-
-
-    /**
-     * Adds a new tab to the tabbed pane.
-     */
-    private void addNewTab() {
-        Tab tab = new Tab("Unsaved Document " + documentIndex);
-
-        documentIndex++;
-
-        EditingArea editingArea = new EditingArea();
-
-        tab.setOnCloseRequest((Event e) -> {
-            if(showPossibleDataLossDialog(editingArea)) {
-                documentIndex--;
-            }
-        });
-
-        tab.setContent(editingArea);
-        tabPane.getTabs().add(tab);
-        tabPane.getSelectionModel().select(tab);
-        
-        // Add key combinations for keyboard shortcuts.
-        KeyCodeCombination saveKC = new KeyCodeCombination(KeyCode.S, KeyCombination.CONTROL_DOWN);
-        KeyCodeCombination saveAsKC = new KeyCodeCombination(KeyCode.S, KeyCombination.CONTROL_DOWN, KeyCombination.SHIFT_DOWN);
-        KeyCodeCombination openKC = new KeyCodeCombination(KeyCode.O, KeyCombination.CONTROL_DOWN);
-        KeyCodeCombination quitKC = new KeyCodeCombination(KeyCode.Q, KeyCombination.CONTROL_DOWN);
-        KeyCodeCombination newKC = new KeyCodeCombination(KeyCode.N, KeyCombination.CONTROL_DOWN);
-        KeyCodeCombination printKC = new KeyCodeCombination(KeyCode.P, KeyCombination.CONTROL_DOWN);
-        
-        editingArea.addEventFilter(KeyEvent.KEY_RELEASED, (KeyEvent e) -> {
-            if(saveAsKC.match(e)) {
-                if(saveFile(getActiveEditingArea(), true)) {
-                    tabPane.getSelectionModel().getSelectedItem().setText(editingArea.getCurrentFile().getName());
-                }
-            } else if(saveKC.match(e)) {
-                if(saveFile(getActiveEditingArea(), false)) {
-                    tabPane.getSelectionModel().getSelectedItem().setText(editingArea.getCurrentFile().getName());
-                }
-                
-            } else if(openKC.match(e)) {
-                openFile();
-            } else if(quitKC.match(e)) {
-                exitProgram();
-            } else if(newKC.match(e)) {
-                addNewTab();
-            } else if(printKC.match(e)) {
-                new PrinterWorker(getActiveEditingArea()).print();
-            }
-        });
-        
-        editingArea.requestFocus();
-    }
-    
     
     /**
-     * Allows the user to open a file.
+     * Returns whether or not the content in the editing area needs to be saved.
+     * 
+     * @param editingArea   The EditingArea that contains the content that might
+     *                      need to be saved.
+     * @return  Whether or not the content in editingArea needs to be saved.
      */
-    private void openFile() {
-        fileChooser.setTitle("Open File");
-        List<File> files = fileChooser.showOpenMultipleDialog(primaryStage);
-
-        if(files != null) {
-
-            for(File temp : files) {
-                
-                addNewTab();
-                EditingArea editingArea = getActiveEditingArea();
-                editingArea.setCurrentFile(temp);
-
-                try {
-                    BufferedReader br = new BufferedReader(new FileReader(editingArea.getCurrentFile()));
-                    String line;
-
-                    while((line = br.readLine()) != null) {
-                        editingArea.appendText(line + "\n");
-                    }
-
-                    tabPane.getSelectionModel().getSelectedItem().setText(editingArea.getCurrentFile().getName());
-
-                    br.close();
-
-                    editingArea.resetHasBeenEdited();
-                    editingArea.requestFocus();
-                } catch (IOException err) {
-                    showExceptionDialog(err);
-                    editingArea.requestFocus();
-                }
-            }
-        }
-    }
-
-
-    /**
-     * Saves the text the user typed to the current file.
-     *
-     * @param content   The text to be saved to the file.
-     */
-    private boolean saveFile(final EditingArea editingArea, final boolean saveAs) {
-
-        fileChooser.setTitle("Save File");
-        
-        if(saveAs) {
-            File temp = fileChooser.showSaveDialog(primaryStage);
-            if(temp == null) {
-                return false;
-            }
-            editingArea.setCurrentFile(temp);
-        } else if(editingArea.getCurrentFile() == null
-                || !(new File(editingArea.getCurrentFile().getAbsolutePath()).exists())) {
-
-            File temp = fileChooser.showSaveDialog(primaryStage);
-            if(temp == null) {
-                return false;
-            }
-            editingArea.setCurrentFile(temp);
-        }
-
-        try(PrintWriter pw = new PrintWriter(new BufferedWriter(new FileWriter(editingArea.getCurrentFile())));) {
-            pw.println(editingArea.getText());
-            Alert alert = new Alert(AlertType.INFORMATION);
-            alert.setTitle("File Saved");
-            alert.setHeaderText(null);
-            alert.setContentText("File Saved!");
-            alert.showAndWait();
-            editingArea.resetHasBeenEdited();
+    private boolean isFileSaveNeeded(final EditingArea editingArea) {
+        if(editingArea.getCurrentFile() != null 
+                && !(new File(editingArea.getCurrentFile().getAbsolutePath()).exists())) {
             return true;
-        } catch (IOException err) {
-            showExceptionDialog(err);
-            return false;
+        } else {
+            return editingArea.getHasBeenEdited();
         }
     }
-
-
-    /**
-     * Shows an Alert to the user saying that their file has unsaved changes and
-     * asks if they want to save their changes before creating a new file or
-     * exiting the program.
-     *
-     * @param editingArea   The text area that contains the text the user typed.
-     * @return true if the application can exit; false if not.
-     */
-    private boolean showPossibleDataLossDialog(final EditingArea editingArea) {
-
-        if(editingArea.getHasBeenEdited()) {
-
-            Alert warning = new Alert(AlertType.WARNING);
-            warning.setTitle("Warning!");
-            warning.setHeaderText(null);
-            warning.setContentText("You have unsaved changes. Would you like to save them?");
-
-            ButtonType yes = new ButtonType("Yes", ButtonData.YES);
-            ButtonType no = new ButtonType("No", ButtonData.NO);
-            ButtonType cancel = new ButtonType("Cancel", ButtonData.CANCEL_CLOSE);
-
-            warning.getButtonTypes().setAll(no, yes, cancel);
-
-            Optional<ButtonType> result = warning.showAndWait();
-
-            if(result.get() == yes) {
-                saveFile(editingArea, false);
-                return true;
-            } else if(result.get() == cancel) {
-                return false;
-            }
-        }
-        return true;
-    }
-
+    
 
     /**
      * Shows a dialog with the exception message.

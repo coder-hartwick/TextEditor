@@ -1,9 +1,10 @@
 package texteditor;
 
 import java.io.File;
+import javafx.beans.value.ChangeListener;
+import javafx.beans.value.ObservableValue;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.TextArea;
-import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.text.Font;
@@ -40,12 +41,22 @@ public class EditingArea extends TextArea {
         setWrapText(true);
         setFont(new Font("Arial", 12));
         
-        addEventFilter(KeyEvent.KEY_TYPED, (KeyEvent e) -> {
+        ContextMenu contextMenu = new ContextMenu();
+        
+        /*
+         * A listener for if the document associated with this text area has been
+         * edited.
+         */
+        this.textProperty().addListener((final ObservableValue<? extends String> observable, 
+                                        final String oldValue, 
+                                        final String newValue) -> {
             hasBeenEdited = true;
         });
         
-        ContextMenu contextMenu = new ContextMenu();
-        
+        /*
+         * Listen for mouse clicks within this text area and if the click is the
+         * secondary mouse button (right click), display the context menu.
+         */
         addEventFilter(MouseEvent.MOUSE_CLICKED, (MouseEvent e) -> {
             if(e.getButton() == MouseButton.SECONDARY) {
                 contextMenu.show(this, e.getX(), e.getY());
